@@ -155,6 +155,7 @@ class BaseTrainer:
 
             for lstep, batch in enumerate(tqdm(ctx.dataloader, total=self.cfg.epoch_size, desc=f'Epoch {self.epoch}')):
                 ctx.local_step = lstep
+                ctx.log_comp.step = self.global_step
 
                 batch = self.move_to_device(batch, ctx.model.device)
                 with timer.measure("compute_loss"):

@@ -61,7 +61,7 @@ class LogAccumulator:
             run = self.running_means[n]
             mean = t.mean()
             std = t.std()
-            print(f'{n}: running: {run:.2f}; mean: {mean:.2f} +- {std:.2f}')
+            print(f'{n}: running: {run:.5f}; mean: {mean:.5f} +- {std:.5f}')
 
     def clear(self):
         self.epoch_logs.clear()
