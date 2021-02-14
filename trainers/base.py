@@ -42,6 +42,8 @@ class BaseContext:
         self.log_comp = log_comp
         self.optimizer = optimizer
         self.writer = writer
+        self.run_every = None  # if none uses default values from trainer
+        self.num_batches = None  # number of batches to stop evaluation after
 
         self.local_step = 0
         """ Intra-epoch step counter """
@@ -179,9 +181,7 @@ class BaseTrainer:
             if ctx.log_comp:
                 ctx.log_comp.print_aggregates()
 
-            if self.cfg.val_period > 0 and self.epoch % self.cfg.val_period == 0:
-                self.model.eval()
-                self.validation()
+            self.validation()
 
             if self.storage:
                 self.save_state()
@@ -192,11 +192,16 @@ class BaseTrainer:
         with torch.no_grad():
             for ctx_name in self.validation_context_names:
                 ctx = self.contexts[ctx_name]
+                val_period = ctx.run_every or self.cfg.val_period
+                if val_period is not None and self.epoch % val_period != 0:
+                    continue
+
+                self.model.eval()
                 ctx.log_comp.clear()
 
                 for idx, batch in enumerate(ctx.dataloader):
                     ctx.local_step = idx
-                    if idx == self.cfg.val_batches:
+                    if idx == ctx.num_batches:
                         break
                     batch = self.move_to_device(batch, ctx.model.device)
                     self.process_val_batch(ctx, batch)
@@ -206,7 +211,7 @@ class BaseTrainer:
                 ctx.log_comp.print_aggregates()
                 ctx.log_comp.log_aggregates()
 
-    def process_val_batch(self, ctx: BaseContext, input: dict):
+    def process_val_batch(self, ctx: BaseContext, batch: dict):
         raise NotImplementedError()
 
     @property
