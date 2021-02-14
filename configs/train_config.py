@@ -38,20 +38,19 @@ class TrainConfig(BaseConfig):
 
         storage = Storage(root_dir=root_dir, experiment_name=exp_name)
         trainer_state = None
-        if checkpoint is None:
-            model = self.build_model()
+
+        if self.use_meta_info:
+            model = self.build_model().__class__
         else:
+            model = self.build_model()
+
+        if checkpoint is not None:
             if checkpoint.find(osp.sep) > -1:
-                model, trainer_state = storage.load_state(checkpoint_path=checkpoint)
-            elif checkpoint == 'last':
-                checkpoint = None
-
-            if self.use_meta_info:
-                model = None
+                model, trainer_state = storage.load_state(checkpoint_path=checkpoint, model=model)
             else:
-                model = self.build_model()
-
-            model, trainer_state = storage.load_state(checkpoint_name=checkpoint, model=model)
+                if checkpoint == 'last':
+                    checkpoint = None
+                model, trainer_state = storage.load_state(checkpoint_name=checkpoint, model=model)
 
         model = model.to(self.device)
         model.device = self.device

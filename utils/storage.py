@@ -44,7 +44,7 @@ class Storage:
         torch.save(state, save_path)
 
     def load_state(self, checkpoint_path=None, checkpoint_name=None, model=None):
-        """ Load state from checkpoint tries to instantinate appropriate model if possible """
+        """ Loads a state from the checkpoint,  tries to instantinate appropriate model if possible """
         assert not (checkpoint_path is not None and checkpoint_name is not None), \
             "checkpoint_path and checkpoint_name must not be specified together"
 
@@ -56,13 +56,16 @@ class Storage:
 
         state = torch.load(checkpoint_path)
 
-        if 'meta_parameters' in state and model is None:  # new-style checkpoint
-            import models
+        if 'meta_parameters' in state:  # new-style checkpoint
             meta = state['meta_parameters']
             name = meta['name']
             args = meta['args']
-            logger.info('Building model %s with args %s' % (name, str(args)))
-            model = models.model_directory[name](**args)
+            if isinstance(model, type):
+                model = model(**args)
+            elif model is None:
+                import models
+                logger.info('Instantinating model "%s" from model directory with args %s' % (name, str(args)))
+                model = models.model_directory[name](**args)
 
         logger.info(f'loading weights from {checkpoint_path}')
 
