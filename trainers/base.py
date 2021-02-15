@@ -61,6 +61,8 @@ class BaseTrainer:
 
     Context = BaseContext
 
+    AFTER_BACKWARD = 'after_backward'
+
     def __init__(self, model: Module,
                  datasets: Union[Dataset, Dict[str, Dataset]],
                  cfg: TrainConfig,
@@ -85,6 +87,8 @@ class BaseTrainer:
 
         self.scheduler = scheduler
 
+        self.callbacks = {}
+
         if trainer_state is not None:
             self.global_step = trainer_state['global_step']
             self.epoch = trainer_state['epoch']
@@ -95,6 +99,9 @@ class BaseTrainer:
     def save_state(self):
         epoch = self.epoch + 1  # its called after epoch end, so we should start from the next one after restart
         self.storage.save_state(self.model, {'global_step': self.global_step, 'epoch': epoch}, f'epoch_{epoch}')
+
+    def set_after_backward_callback(self, f):
+        self.callbacks[self.AFTER_BACKWARD] = f
 
     @property
     def validation_context_names(self):
@@ -164,6 +171,11 @@ class BaseTrainer:
                 ctx.optimizer.zero_grad()
                 with timer.measure('backward'):
                     loss.backward()
+
+                f = self.callbacks.get(self.AFTER_BACKWARD)
+                if f is not None:
+                    f(ctx)
+
                 ctx.optimizer.step()
 
                 self.global_step += 1

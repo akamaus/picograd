@@ -63,7 +63,12 @@ class TrainConfig(BaseConfig):
         model, storage, train_state = self.load_model(root_dir, checkpoint, with_storage=True)
         if fresh_trainer:
             train_state = None
-        return self.build_trainer(model, storage=storage, trainer_state=train_state)
+        trainer = self.build_trainer(model, storage=storage, trainer_state=train_state)
+        self.finalize_trainer(trainer)
+        return trainer
+
+    def finalize_trainer(self, trainer):
+        pass
 
     def build_model(self) -> torch.nn.Module:
         """ Build model class from scratch """
