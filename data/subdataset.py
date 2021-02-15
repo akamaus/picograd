@@ -2,7 +2,7 @@ from torch.utils.data import Dataset
 class SubDataset(Dataset):
     """ A wrapper returning subset of indices """
     def __init__(self, ds, indices):
-        self._indices = list(indices)
+        self._indices = list(filter(lambda x: x<len(ds), indices))
         self._ds = ds
 
     def __len__(self):

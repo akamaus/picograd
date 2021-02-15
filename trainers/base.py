@@ -158,7 +158,7 @@ class BaseTrainer:
                 ctx.log_comp.clear()
 
             if self.scheduler is not None:
-                self.scheduler.schedule(epoch=self.epoch, global_step=self.global_step)
+                self.scheduler.step(global_step=self.global_step, epoch=self.epoch)
 
             for lstep, batch in enumerate(tqdm(ctx.dataloader, total=self.cfg.epoch_size, desc=f'Epoch {self.epoch}')):
                 ctx.local_step = lstep
