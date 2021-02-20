@@ -1,8 +1,8 @@
 """ Tests for global and local timers """
 import torch
 
-from utils.timer import Timer
-import utils.timer as t
+from picograd.utils.timer import Timer
+import picograd.utils.timer as t
 
 timer = Timer()
 

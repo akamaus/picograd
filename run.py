@@ -4,12 +4,12 @@ from argparse import ArgumentParser
 import importlib.util
 from pathlib import Path
 
-from configs.train_config import TrainConfig, BaseConfig
+from picograd.configs.train_config import TrainConfig, BaseConfig
 
-import utils.timer as timer
-from utils.helpers import fix_seeds
+import picograd.utils.timer as timer
+from picograd.utils.helpers import fix_seeds
 
-from utils.config_utils import load_config
+from picograd.utils.config_utils import load_config
 
 
 if __name__ == '__main__':

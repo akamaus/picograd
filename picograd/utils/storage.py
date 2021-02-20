@@ -1,6 +1,6 @@
 import logging
 import os
-import utils.system as sys
+from .system import link
 
 import torch
 
@@ -38,7 +38,7 @@ class Storage:
         last_cpt = self.checkpoint_path(self.LAST_CPT)
         if os.path.exists(last_cpt):
             os.unlink(last_cpt)
-        sys.link(os.path.abspath(save_path), last_cpt)
+        link(os.path.abspath(save_path), last_cpt)
 
         logger.info(f'saving to {save_path}')
         torch.save(state, save_path)

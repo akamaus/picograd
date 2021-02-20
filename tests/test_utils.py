@@ -5,7 +5,7 @@ import tempfile
 
 import torch
 
-from utils.storage import Storage
+from picograd.utils.storage import Storage
 from tests.models.linear_net import LinearNet
 
 

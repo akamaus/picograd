@@ -3,12 +3,12 @@ import os.path as osp
 import torch
 from typing import TYPE_CHECKING, Union, Tuple
 
-from configs.base import BaseConfig
-from utils.storage import Storage
+from .base import BaseConfig
+from ..utils.storage import Storage
 
 
 if TYPE_CHECKING:
-    from trainers.base import BaseTrainer
+    from .base import BaseTrainer
 
 
 class TrainConfig(BaseConfig):
@@ -39,7 +39,7 @@ class TrainConfig(BaseConfig):
         storage = Storage(root_dir=root_dir, experiment_name=exp_name)
         trainer_state = None
 
-        if self.use_meta_info:
+        if self.use_meta_info and checkpoint is not None:
             model = self.build_model().__class__
         else:
             model = self.build_model()

@@ -1,6 +1,6 @@
 import importlib.util
 from pathlib import Path
-from configs.train_config import TrainConfig, BaseConfig
+from picograd.configs.train_config import TrainConfig, BaseConfig
 
 
 def load_config(config_path: str, rest_args: list) -> TrainConfig:

@@ -1,7 +1,7 @@
 import unittest
 import pytest
 
-from configs.base import BaseConfig
+from picograd.configs.base import BaseConfig
 
 
 class TestConfigs(unittest.TestCase):

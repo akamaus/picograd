@@ -5,8 +5,8 @@ import unittest
 
 import torch
 
-from configs.train_config import TrainConfig
-from trainers.base import BaseTrainer, BaseContext
+from picograd.configs.train_config import TrainConfig
+from picograd.trainers.base import BaseTrainer, BaseContext
 from tests.models.linear_net import LinearNet
 
 
@@ -72,4 +72,4 @@ class TestIntegration(unittest.TestCase):
         trainer2.train()
 
         assert trainer2.global_step == 33
-        assert abs(trainer2.contexts['training'].log_comp.running_means['loss'] - -29.45) < 1e-1
+        assert abs(trainer2.contexts['training'].log_comp.running_means['loss'] - -30.18) < 1e-1

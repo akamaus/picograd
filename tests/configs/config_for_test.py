@@ -1,4 +1,4 @@
-from configs.base import BaseConfig
+from picograd.configs.base import BaseConfig
 
 
 class Config(BaseConfig):
