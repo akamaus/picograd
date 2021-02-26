@@ -137,7 +137,7 @@ class BaseTrainer:
         return contexts
 
     def build_optimizer(self):
-        return torch.optim.Adam(self.model.parameters(), lr=self.cfg.learning_rate)
+        return torch.optim.Adam(self.model.parameters(), lr=self.cfg.learning_rate, betas=(self.cfg.beta1, self.cfg.beta2))
 
     def build_dataloader(self, ctx_name: str):
         cfg = self.cfg
@@ -150,14 +150,11 @@ class BaseTrainer:
     def train(self, num_steps=None):
         steps = 0
 
-        for self.epoch in range(self.epoch, self.cfg.num_epochs):
+        while True:
             self.model.train()
             ctx = self.contexts['training']
             if ctx.log_comp:
                 ctx.log_comp.clear()
-
-            if self.scheduler is not None:
-                self.scheduler.step(global_step=self.global_step, epoch=self.epoch)
 
             for lstep, batch in enumerate(tqdm(ctx.dataloader, total=self.cfg.epoch_size, desc=f'Epoch {self.epoch}')):
                 ctx.local_step = lstep
@@ -195,10 +192,17 @@ class BaseTrainer:
 
             self.validation()
 
+            if self.scheduler is not None:
+                self.scheduler.step(global_step=self.global_step, epoch=self.epoch)
+
+            self.epoch += 1
+
             if self.storage:
                 self.save_state()
 
-        print('Target epoch number reached')
+            if self.epoch >= self.cfg.num_epochs:
+                print('Target epoch number reached')
+                break
 
     def validation(self):
         with torch.no_grad():

@@ -21,6 +21,8 @@ class TrainConfig(BaseConfig):
         self.epoch_size = 100
         self.num_epochs = 1000
         self.learning_rate = 1e-4
+        self.beta1 = 0.9
+        self.beta2 = 0.999
         self.log_period = 1
         self.val_period = 0  # in epochs
         self.val_batches = 10
