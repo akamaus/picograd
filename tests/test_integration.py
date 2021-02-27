@@ -37,9 +37,9 @@ class TstConfig(TrainConfig):
     def build_model(self) -> torch.nn.Module:
         return LinearNet(inp_chans=2, out_chans=2)
 
-    def build_trainer(self, model, storage, trainer_state) -> BaseTrainer:
+    def build_trainer(self, model, storage) -> BaseTrainer:
         ds = RndDataset()
-        return TstTrainer(model, ds, cfg=self, storage=storage, trainer_state=trainer_state)
+        return TstTrainer(model, ds, cfg=self, storage=storage)
 
 
 class TestIntegration(unittest.TestCase):
@@ -59,17 +59,29 @@ class TestIntegration(unittest.TestCase):
         trainer.contexts['training'].log_comp.alpha = 0.1
         trainer.train()
         assert trainer.global_step == 30
-        assert trainer.epoch == 2
+        assert trainer.epoch == 3
         assert abs(trainer.contexts['training'].log_comp.running_means['loss'] - -25.42) < 1e-1
 
-        # test loading
+        # test loading last checkpoint
+        torch.manual_seed(42)
         cfg2 = TstConfig()
         cfg2.override_attrs(experiment_name='integration_test_exp', num_epochs=4, epoch_size=3, num_workers=0, learning_rate=1, device='cuda')
         trainer2 = cfg2.prepare_trainer(root_dir=self.exps_dir, checkpoint='last')
-        trainer.contexts['training'].log_comp.alpha = 0.1
+        trainer2.contexts['training'].log_comp.alpha = 0.1
         assert trainer2.global_step == 30
         assert trainer2.epoch == 3
         trainer2.train()
 
-        assert trainer2.global_step == 33
-        assert abs(trainer2.contexts['training'].log_comp.running_means['loss'] - -30.18) < 1e-1
+        # test loading named checkpoint
+
+        torch.manual_seed(42)
+        cfg3 = TstConfig()
+        cfg3.override_attrs(experiment_name='integration_test_exp', num_epochs=4, epoch_size=3, num_workers=0, learning_rate=1, device='cuda')
+        trainer3 = cfg3.prepare_trainer(root_dir=self.exps_dir, checkpoint='epoch_3')
+        trainer3.contexts['training'].log_comp.alpha = 0.1
+        assert trainer3.global_step == 30
+        assert trainer3.epoch == 3
+        trainer3.train()
+
+        assert trainer3.global_step == 33
+        assert trainer3.epoch == 4

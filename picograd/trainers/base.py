@@ -15,7 +15,7 @@ from tensorboardX import SummaryWriter
 
 from ..configs.train_config import TrainConfig
 from ..loggers.log_accumulator import LogAccumulator
-from ..utils.storage import Storage
+from ..utils.storage import Storage, LoadStateError
 from ..utils import timer
 
 
@@ -50,6 +50,28 @@ class BaseContext:
     def compute_loss(self, input: dict):
         raise NotImplementedError
 
+    def state_dict(self):
+        state = {}
+
+        opt = None
+        if self.optimizer is not None:
+            opt = self.optimizer.state_dict()
+
+        state['optimizer'] = opt
+        state['log_comp'] = self.log_comp.state_dict() if self.log_comp else None
+        return state
+
+    def load_state_dict(self, state, strict=True):
+        opt_st = state['optimizer']
+
+        if (opt_st is None) != (self.optimizer is None):
+            if strict:
+                raise LoadStateError('no state for optimizer or vise-versa')
+        elif self.optimizer is not None:
+            self.optimizer.load_state_dict(opt_st)
+
+        if self.log_comp is not None:
+            self.log_comp.load_state_dict(state['log_comp'])
 
 class BaseTrainer:
     """ Object implementing training process """
@@ -66,7 +88,6 @@ class BaseTrainer:
                  datasets: Union[Dataset, Dict[str, Dataset]],
                  cfg: TrainConfig,
                  storage: Optional[Storage] = None,
-                 trainer_state=None,
                  scheduler: Optional[BaseScheduler]=None):
         self.model = model
 
@@ -88,16 +109,39 @@ class BaseTrainer:
 
         self.callbacks = {}
 
-        if trainer_state is not None:
-            self.global_step = trainer_state['global_step']
-            self.epoch = trainer_state['epoch']
-        else:
-            self.global_step = 0
-            self.epoch = 0
+        self.global_step = 0
+        self.epoch = 0
 
     def save_state(self):
-        epoch = self.epoch + 1  # its called after epoch end, so we should start from the next one after restart
-        self.storage.save_state(self.model, {'global_step': self.global_step, 'epoch': epoch}, f'epoch_{epoch}')
+        self.storage.save_state(self.model, self.state_dict(), f'epoch_{self.epoch}')
+
+    def state_dict(self):
+        ctxs = {k: ctx.state_dict() for k,ctx in self.contexts.items()}
+        state = {'global_step': self.global_step,
+                 'epoch': self.epoch,
+                 'contexts': ctxs}
+        return state
+
+    def load_state_dict(self, state, strict=True):
+        self.global_step = state['global_step']
+        self.epoch = state['epoch']
+
+        ctxs_st = state.get('contexts')
+        if ctxs_st is None:
+            if strict:
+                raise LoadStateError('no contexts in state')
+        else:
+            if len(ctxs_st) != len(self.contexts) and strict:
+                raise LoadStateError('Excessive contexts in checkpoint', list(ctxs_st.keys()))
+
+            for k, ctx in self.contexts.items():
+                st = ctxs_st.get(k)
+                if st is None:
+                    if strict:
+                        raise LoadStateError('no state for context', k)
+                else:
+                    ctx.load_state_dict(ctxs_st[k])
+
 
     def set_after_backward_callback(self, f):
         self.callbacks[self.AFTER_BACKWARD] = f

@@ -1,10 +1,16 @@
 import logging
 import os
 from .system import link
+from typing import Optional
 
 import torch
 
 logger = logging.getLogger('utils')
+
+
+class LoadStateError(RuntimeError):
+    """ Exception to be invoked on deserialization errors """
+    pass
 
 
 class Storage:
@@ -17,14 +23,14 @@ class Storage:
         self._experiment_name = experiment_name
 
     @property
-    def experiment_dir(self):
+    def experiment_dir(self) -> str:
         d = os.path.join(self._root_dir, self._experiment_name)
         return d
 
-    def checkpoint_path(self, cpt_name):
+    def checkpoint_path(self, cpt_name: str) -> str:
         return os.path.join(self.experiment_dir, "checkpoints", f'{cpt_name}.ckp')
 
-    def save_state(self, model, train_state, cpt_name):
+    def save_state(self, model: torch.nn.Module, train_state:dict, cpt_name:str):
         """ Save experiment checkpoint """
         assert isinstance(cpt_name, str), f"checkpoint name should be str, but is {cpt_name}"
         save_path = self.checkpoint_path(cpt_name)
@@ -35,15 +41,15 @@ class Storage:
                  'meta_parameters': model.meta_parameters
                 }
 
+        logger.info(f'saving to {save_path}')
+        torch.save(state, save_path)
+
         last_cpt = self.checkpoint_path(self.LAST_CPT)
         if os.path.exists(last_cpt):
             os.unlink(last_cpt)
         link(os.path.abspath(save_path), last_cpt)
 
-        logger.info(f'saving to {save_path}')
-        torch.save(state, save_path)
-
-    def load_state(self, checkpoint_path=None, checkpoint_name=None, model=None):
+    def load_state(self, checkpoint_path:Optional[str]=None, checkpoint_name:Optional[str]=None, model: Optional[torch.nn.Module]=None):
         """ Loads a state from the checkpoint,  tries to instantinate appropriate model if possible """
         assert not (checkpoint_path is not None and checkpoint_name is not None), \
             "checkpoint_path and checkpoint_name must not be specified together"
@@ -70,7 +76,7 @@ class Storage:
         logger.info(f'loading weights from {checkpoint_path}')
 
         if model is None:
-            raise ValueError('either use new-style checkpoint or pass model object')
+            raise LoadStateError('either use new-style checkpoint or pass model object')
 
         if 'model_state' in state:
             model_state = state['model_state']

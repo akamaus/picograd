@@ -8,4 +8,4 @@ def link(origin, link_path):
         import win32file
         win32file.CreateSymbolicLink(link_path, origin)
     else:
-        os.symlink(origin, link_path)
+        os.link(origin, link_path)

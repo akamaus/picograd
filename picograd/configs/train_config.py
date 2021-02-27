@@ -61,11 +61,14 @@ class TrainConfig(BaseConfig):
         else:
             return model
 
-    def prepare_trainer(self, root_dir='experiments', checkpoint=None, fresh_trainer=False) -> "BaseTrainer":
+    def prepare_trainer(self, root_dir='experiments', checkpoint=None, fresh_trainer=False, strict=False) -> "BaseTrainer":
         model, storage, train_state = self.load_model(root_dir, checkpoint, with_storage=True)
         if fresh_trainer:
             train_state = None
-        trainer = self.build_trainer(model, storage=storage, trainer_state=train_state)
+        trainer = self.build_trainer(model, storage=storage)
+        if train_state is not None:
+            trainer.load_state_dict(train_state, strict)
+
         self.finalize_trainer(trainer)
         return trainer
 
@@ -76,5 +79,5 @@ class TrainConfig(BaseConfig):
         """ Build model class from scratch """
         raise NotImplemented()
 
-    def build_trainer(self, model: torch.nn.Module, storage: Storage, trainer_state: dict) -> "BaseTrainer":
+    def build_trainer(self, model: torch.nn.Module, storage: Storage) -> "BaseTrainer":
         raise NotImplemented()

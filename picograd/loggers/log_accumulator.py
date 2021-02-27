@@ -18,6 +18,20 @@ class LogAccumulator:
         self.writer = writer
         self.step = 0
 
+    def state_dict(self):
+        return {'epoch_logs': dict(self.epoch_logs),
+                'running_means': self.running_means,
+                'step': self.step
+               }
+
+    def load_state_dict(self, state, strict=True):
+        self.epoch_logs.clear()
+        for k, log in state['epoch_logs'].items():
+            self.epoch_logs[k] = log
+
+        self.running_means = state['running_means']
+        self.step = state['step']
+
     def log_metric(self, name, value):
         """ store value in internal array and optionally log it to TB """
         if isinstance(value, torch.Tensor):
