@@ -1,5 +1,5 @@
 import os.path as osp
-from typing import Optional, Union, Dict, Set
+from typing import Optional, Union, Dict, Set, Callable
 
 import torch
 from torch.utils.data import Dataset
@@ -17,11 +17,6 @@ from ..configs.train_config import TrainConfig
 from ..loggers.log_accumulator import LogAccumulator
 from ..utils.storage import Storage, LoadStateError
 from ..utils import timer
-
-
-class BaseScheduler:
-    def schedule(self, global_step, epoch):
-        raise NotImplementedError()
 
 
 class BaseContext:
@@ -82,13 +77,14 @@ class BaseTrainer:
 
     Context = BaseContext
 
-    AFTER_BACKWARD = 'after_backward'
+    AFTER_BACKWARD_CALLBACK = 'after_backward'
+    AFTER_STEP_CALLBACK = 'after_step'
+    AFTER_EPOCH_CALLBACK = 'after_epoch'
 
     def __init__(self, model: Module,
                  datasets: Union[Dataset, Dict[str, Dataset]],
                  cfg: TrainConfig,
-                 storage: Optional[Storage] = None,
-                 scheduler: Optional[BaseScheduler]=None):
+                 storage: Optional[Storage] = None):
         self.model = model
 
         if isinstance(datasets, Dataset):
@@ -100,12 +96,8 @@ class BaseTrainer:
 
         self.cfg = cfg
 
-        self.optimizer = self.build_optimizer()
-
         self.contexts = self.build_contexts()
         """ First context is training, rest are used for validation """
-
-        self.scheduler = scheduler
 
         self.callbacks = {}
 
@@ -143,8 +135,15 @@ class BaseTrainer:
                     ctx.load_state_dict(ctxs_st[k])
 
 
-    def set_after_backward_callback(self, f):
-        self.callbacks[self.AFTER_BACKWARD] = f
+    def add_callback(self, callback_name:str, f:Callable):
+        lst = self.callbacks.get(callback_name, [])
+        lst.append(f)
+        self.callbacks[callback_name] = lst
+
+    def execute_callbacks(self, callback_name:str, ctx: BaseContext):
+        lst = self.callbacks.get(callback_name, [])
+        for clbk in lst:
+            clbk(ctx)
 
     @property
     def validation_context_names(self):
@@ -212,11 +211,11 @@ class BaseTrainer:
                 with timer.measure('backward'):
                     loss.backward()
 
-                f = self.callbacks.get(self.AFTER_BACKWARD)
-                if f is not None:
-                    f(ctx)
+                self.execute_callbacks(self.AFTER_BACKWARD_CALLBACK, ctx)
 
                 ctx.optimizer.step()
+
+                self.execute_callbacks(self.AFTER_STEP_CALLBACK, ctx)
 
                 self.global_step += 1
                 steps += 1
@@ -230,14 +229,13 @@ class BaseTrainer:
                 if lstep == self.cfg.epoch_size - 1:
                     break
 
+            self.execute_callbacks(self.AFTER_EPOCH_CALLBACK, ctx)
+
             print('Epoch aggregates:')
             if ctx.log_comp:
                 ctx.log_comp.print_aggregates()
 
             self.validation()
-
-            if self.scheduler is not None:
-                self.scheduler.step(global_step=self.global_step, epoch=self.epoch)
 
             self.epoch += 1
 

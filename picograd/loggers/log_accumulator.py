@@ -32,16 +32,17 @@ class LogAccumulator:
         self.running_means = state['running_means']
         self.step = state['step']
 
-    def log_metric(self, name, value):
+    def log_metric(self, name, value, aggregate=True):
         """ store value in internal array and optionally log it to TB """
         if isinstance(value, torch.Tensor):
             value = value.item()
 
-        self.epoch_logs[name].append(value)
-        if name in self.running_means:
-            self.running_means[name] = self.alpha * self.running_means[name] + (1 - self.alpha) * value
-        else:
-            self.running_means[name] = value
+        if aggregate:
+            self.epoch_logs[name].append(value)
+            if name in self.running_means:
+                self.running_means[name] = self.alpha * self.running_means[name] + (1 - self.alpha) * value
+            else:
+                self.running_means[name] = value
 
         write = False
         if self.writer is not None:
