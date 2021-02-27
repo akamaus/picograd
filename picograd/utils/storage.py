@@ -14,6 +14,10 @@ class LoadStateError(RuntimeError):
     """ Exception to be invoked on deserialization errors """
     pass
 
+class SaveStateError(RuntimeError):
+    """ Various problems during state saving"""
+    pass
+
 
 class Storage:
     LAST_CPT = "last"
@@ -45,7 +49,12 @@ class Storage:
         if torch.cuda.is_available():
             rng_state['torch.cuda'] = torch.cuda.get_rng_state()
 
-        state = {'model_state': model.state_dict(),
+        model_state = model.state_dict()
+        for pn, v in model_state.items():
+            if torch.isnan(v).sum() > 0:
+                raise SaveStateError('Warning, NaNs in loaded model state detected in parameter', pn)
+
+        state = {'model_state': model_state,
                  'train_state': train_state,
                  'meta_parameters': model.meta_parameters,
                  'rng_state': rng_state
@@ -94,6 +103,10 @@ class Storage:
             model_state = state
 
         logger.info(f'model.meta_parameters = {model.meta_parameters}')
+
+        for v in model_state.values():
+            if torch.isnan(v).sum() > 0:
+                print('Warning, NaNs in loaded model state detected')
 
         model.load_state_dict(model_state)
         rng_state = state.get('rng_state')

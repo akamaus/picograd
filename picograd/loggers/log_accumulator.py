@@ -67,7 +67,8 @@ class LogAccumulator:
 
     def log_text(self, label, text):
         """ Log some text """
-        self.writer.add_text(label, text, global_step=self.step)
+        if self.writer:
+            self.writer.add_text(label, text, global_step=self.step)
 
     def print_aggregates(self):
         """ Print aggregated value to stdout """
