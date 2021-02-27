@@ -85,3 +85,25 @@ class TestIntegration(unittest.TestCase):
 
         assert trainer3.global_step == 33
         assert trainer3.epoch == 4
+
+        # test determinism
+
+    def test_determinism(self):
+        torch.manual_seed(0)
+        cfg = TstConfig()
+        cfg.override_attrs(experiment_name='integration_test_exp', num_epochs=3, epoch_size=10, num_workers=0, learning_rate=1)
+
+        trainer = cfg.prepare_trainer(root_dir=self.exps_dir)
+        trainer.train()
+        assert trainer.global_step == 30
+        assert trainer.epoch == 3
+
+        cfg2 = TstConfig()
+        cfg2.override_attrs(experiment_name='integration_test_exp', num_epochs=3, epoch_size=10, num_workers=0, learning_rate=1)
+
+        trainer2 = cfg.prepare_trainer(root_dir=self.exps_dir, checkpoint='epoch_1')
+        trainer2.train()
+
+        assert torch.all(torch.isclose(trainer.model.layer.weight, trainer2.model.layer.weight))
+        print('dist', torch.norm(trainer2.model.layer.weight -  trainer2.model.layer.weight))
+        assert abs(trainer.contexts['training'].log_comp.running_means['loss'] - trainer2.contexts['training'].log_comp.running_means['loss']) < 1e-8

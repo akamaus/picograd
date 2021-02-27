@@ -79,5 +79,3 @@ class LogAccumulator:
 
     def clear(self):
         self.epoch_logs.clear()
-        self.running_means.clear()
-

@@ -1,8 +1,10 @@
 import logging
 import os
+import random
 from .system import link
 from typing import Optional
 
+import numpy
 import torch
 
 logger = logging.getLogger('utils')
@@ -36,9 +38,17 @@ class Storage:
         save_path = self.checkpoint_path(cpt_name)
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
+        rng_state = {}
+        rng_state['random'] = random.getstate()
+        rng_state['numpy'] = numpy.random.get_state()
+        rng_state['torch'] = torch.get_rng_state()
+        if torch.cuda.is_available():
+            rng_state['torch.cuda'] = torch.cuda.get_rng_state()
+
         state = {'model_state': model.state_dict(),
                  'train_state': train_state,
-                 'meta_parameters': model.meta_parameters
+                 'meta_parameters': model.meta_parameters,
+                 'rng_state': rng_state
                 }
 
         logger.info(f'saving to {save_path}')
@@ -86,6 +96,19 @@ class Storage:
         logger.info(f'model.meta_parameters = {model.meta_parameters}')
 
         model.load_state_dict(model_state)
+        rng_state = state.get('rng_state')
+        if rng_state:
+            st = rng_state.get('random')
+            if st is not None:
+                random.setstate(st)
+            st = rng_state.get('numpy')
+            if st is not None:
+                numpy.random.set_state(st)
+            st = rng_state.get('torch')
+            if st is not None:
+                torch.set_rng_state(st)
+            st = rng_state.get('torch.cuda')
+            if st is not None and torch.cuda.is_available():
+                torch.cuda.set_rng_state(st)
+
         return model, state.get('train_state')
-
-
