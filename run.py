@@ -18,6 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--restore', help='checkpoint name or path')
     parser.add_argument('--fresh_trainer', action='store_true', help='start from first epoch')
     parser.add_argument('--global_step', type=int, help='set starting global_step for trainer')
+    parser.add_argument('--train_steps', type=int, help='train for some number of steps and then exit')
 
     args, rest_args = parser.parse_known_args()
     cfg = load_config(args.config, rest_args)
@@ -35,6 +36,6 @@ if __name__ == '__main__':
 
     try:
         with timer.measure('total_train'):
-            trainer.train()
+            trainer.train(args.train_steps)
     finally:
         timer.print_report()

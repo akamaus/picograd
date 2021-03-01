@@ -192,6 +192,7 @@ class BaseTrainer:
 
     def train(self, num_steps=None):
         steps = 0
+        early_finish = False
 
         while True:
             self.model.train()
@@ -224,7 +225,8 @@ class BaseTrainer:
 
                 if num_steps is not None and steps == num_steps:
                     print('Target num_steps reached')
-                    return
+                    early_finish = True
+                    break
 
                 if lstep == self.cfg.epoch_size - 1:
                     break
@@ -244,6 +246,9 @@ class BaseTrainer:
 
             if self.epoch >= self.cfg.num_epochs:
                 print('Target epoch number reached')
+                break
+
+            if early_finish:
                 break
 
     def validation(self):
