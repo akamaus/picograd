@@ -54,7 +54,13 @@ class TrainConfig(BaseConfig):
             else:
                 if checkpoint == 'last':
                     checkpoint = None
-                model, trainer_state = storage.load_state(checkpoint_name=checkpoint, model=model)
+                try:
+                    model, trainer_state = storage.load_state(checkpoint_name=checkpoint, model=model)
+                except FileNotFoundError:
+                    if checkpoint is None:  # did our best to resume training, but no checkpoints were found
+                        print('Warning, no checkpoint found, starting afresh')
+                    else:
+                        raise
 
         model = model.to(self.device)
         model.device = self.device
