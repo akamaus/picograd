@@ -33,12 +33,12 @@ class Storage:
 
     @property
     def experiment_dir(self) -> str:
-        d = os.path.join(self._root_dir, self._experiment_name)
+        d = osp.join(self._root_dir, self._experiment_name)
         return d
 
     def checkpoint_path(self, cpt_name: str) -> str:
         if osp.sep not in cpt_name:
-            path = os.path.join(self.experiment_dir, "checkpoints", f'{cpt_name}.ckp')
+            path = osp.join(self.experiment_dir, "checkpoints", f'{cpt_name}.ckp')
         else:
             path = cpt_name + '.ckp'
         return path
@@ -89,11 +89,11 @@ class Storage:
         model.load_state_dict(model_state)
         return model
 
-    def save_state(self, models: Union[nn.Module, Dict[str, torch.nn.Module]], train_state:dict, cpt_name:str):
+    def save_state(self, models: Union[nn.Module, Dict[str, nn.Module]], train_state:dict, cpt_name:str):
         """ Save experiment checkpoint """
         assert isinstance(cpt_name, str), f"checkpoint name should be str, but is {cpt_name}"
         save_path = self.checkpoint_path(cpt_name)
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        os.makedirs(osp.dirname(save_path), exist_ok=True)
 
         if not isinstance(models, dict):
             models = {'model': models}
@@ -122,11 +122,11 @@ class Storage:
         torch.save(state, save_path)
 
         last_cpt = self.checkpoint_path(self.LAST_CPT)
-        if os.path.exists(last_cpt):
+        if osp.exists(last_cpt):
             os.unlink(last_cpt)
-        link(os.path.abspath(save_path), last_cpt)
+        link(osp.abspath(save_path), last_cpt)
 
-    def load_state(self, checkpoint_path:Optional[str]=None, checkpoint_name:Optional[str]=None, model: Optional[torch.nn.Module]=None):
+    def load_state(self, checkpoint_path:Optional[str]=None, checkpoint_name:Optional[str]=None, model: Optional[nn.Module]=None):
         """ Loads a state from the checkpoint,  tries to instantinate appropriate model if possible """
         assert not (checkpoint_path is not None and checkpoint_name is not None), \
             "checkpoint_path and checkpoint_name must not be specified together"
@@ -138,7 +138,7 @@ class Storage:
             checkpoint_path = self.checkpoint_path(self.LAST_CPT)
             checkpoint_name = self.LAST_CPT
         else:
-            checkpoint_name = os.path.splitext(os.path.basename(checkpoint_path))[0]
+            checkpoint_name = osp.splitext(osp.basename(checkpoint_path))[0]
 
         state = torch.load(checkpoint_path)
 
