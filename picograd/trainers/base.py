@@ -68,6 +68,7 @@ class BaseContext:
         if self.log_comp is not None:
             self.log_comp.load_state_dict(state['log_comp'])
 
+
 class BaseTrainer:
     """ Object implementing training process """
     model: Module
@@ -166,9 +167,6 @@ class BaseTrainer:
                                           log_comp=LogAccumulator(writer, period=self.cfg.log_period),
                                           writer=writer)
 
-        if self.cfg.val_period == 0:
-            return contexts
-
         for ctx_name in self.validation_context_names:
             val_writer = SummaryWriter(osp.join(self.storage.experiment_dir, 'tb_' + ctx_name), flush_secs=3) if self.storage else None
             contexts[ctx_name] = self.Context(ctx_name,
@@ -256,7 +254,7 @@ class BaseTrainer:
             for ctx_name in self.validation_context_names:
                 ctx = self.contexts[ctx_name]
                 val_period = ctx.run_every or self.cfg.val_period
-                if val_period is not None and self.epoch % val_period != 0:
+                if val_period is not None or val_period > 0 or self.epoch % val_period != 0:
                     continue
 
                 self.model.eval()
@@ -283,14 +281,25 @@ class BaseTrainer:
         return None
 
     @timer.wrap('move_to_device')
-    def move_to_device(self, batch: Union[dict, torch.Tensor], device):
-        res = {}
+    def move_to_device(self, batch: Union[dict, tuple, torch.Tensor], device):
         if isinstance(batch, torch.Tensor):
             return batch.to(device)
+        elif isinstance(batch, (tuple, list)):
+            res = []
+            for k, v in enumerate(batch):
+                if isinstance(v, torch.Tensor) and (self.cuda_fields is None or k in self.cuda_fields):
+                    v = v.to(device, non_blocking=True)
+                res.append(v)
+        elif isinstance(batch, dict):
+            res = {}
+            for k, v in batch.items():
+                if isinstance(v, torch.Tensor) and (self.cuda_fields is None or k in self.cuda_fields):
+                    v = v.to(device, non_blocking=True)
+                res[k] = v
+        else:
+            raise RuntimeError('Strange batch type', type(batch))
 
-        for k, v in batch.items():
-            if isinstance(v, torch.Tensor) and (self.cuda_fields is None or k in self.cuda_fields):
-                v = v.to(device, non_blocking=True)
-            res[k] = v
         return res
 
+    def process_val_batch(self, ctx: BaseContext, batch: dict):
+        ctx.compute_loss(batch)

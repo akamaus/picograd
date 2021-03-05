@@ -51,13 +51,15 @@ class Storage:
         for pn, v in model_state.items():
             if torch.isnan(v).sum() > 0:
                 raise SaveStateError('Warning, NaNs in loaded model state detected in parameter', pn)
-        state = {'model_state': model_state,
-                 'meta_parameters': model.meta_parameters}
+
+        state = {}
+        state['model_state'] = model_state
+        if hasattr(model, 'meta_parameters'):
+            state['meta_parameters'] = model.meta_parameters
 
         torch.save(state, save_path)
 
     def load_model(self, model_path: str, model:Optional[nn.Module]=None):
-        print('MP', model_path)
         state = torch.load(model_path)
         if 'meta_parameters' in state:  # new-style checkpoint
             meta = state['meta_parameters']
@@ -80,7 +82,8 @@ class Storage:
         else:
             model_state = state
 
-        logger.info(f'model.meta_parameters = {model.meta_parameters}')
+        if hasattr(model, 'meta_parameters'):
+            logger.info(f'model.meta_parameters = {model.meta_parameters}')
 
         for v in model_state.values():
             if torch.isnan(v).sum() > 0:
