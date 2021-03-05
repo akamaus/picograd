@@ -63,11 +63,12 @@ class Storage:
         state = torch.load(model_path)
         if 'meta_parameters' in state:  # new-style checkpoint
             meta = state['meta_parameters']
-            name = meta['name']
+            name = meta.get('name')
             args = meta['args']
             if isinstance(model, type):
                 model = model(**args)
             elif model is None:
+                assert name is not None, 'No model constructor passed, so meta_parameters should have a name'
                 import models
                 logger.info('Instantinating model "%s" from model directory with args %s' % (name, str(args)))
                 model = models.model_directory[name](**args)

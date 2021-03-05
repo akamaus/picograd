@@ -62,8 +62,16 @@ class TrainConfig(BaseConfig):
                     else:
                         raise
 
-        model = model.to(self.device)
-        model.device = self.device
+        def move_model(m):
+            m = m.to(self.device)
+            m.device = self.device
+            return m
+
+        if isinstance(model, dict):
+            model = {k: move_model(m) for k,m in model.items()}
+        else:
+            model = move_model(model)
+
         if with_storage:
             return model, storage, trainer_state
         else:

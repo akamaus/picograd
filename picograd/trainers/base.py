@@ -50,9 +50,14 @@ class BaseContext:
 
         opt = None
         if self.optimizer is not None:
-            opt = self.optimizer.state_dict()
+            if isinstance(self.optimizer, dict):
+                opt_st = {}
+                for k, o in self.optimizer.items():
+                    opt_st[k] = o.state_dict()
+            else:
+                opt_st = self.optimizer.state_dict()
 
-        state['optimizer'] = opt
+        state['optimizer'] = opt_st
         state['log_comp'] = self.log_comp.state_dict() if self.log_comp else None
         return state
 
@@ -63,7 +68,11 @@ class BaseContext:
             if strict:
                 raise LoadStateError('no state for optimizer or vise-versa')
         elif self.optimizer is not None:
-            self.optimizer.load_state_dict(opt_st)
+            if isinstance(self.optimizer, dict):
+                for n, opt in self.optimizer.items():
+                    opt.load_state_dict(opt_st[n])
+            else:
+                self.optimizer.load_state_dict(opt_st)
 
         if self.log_comp is not None:
             self.log_comp.load_state_dict(state['log_comp'])
@@ -178,7 +187,17 @@ class BaseTrainer:
         return contexts
 
     def build_optimizer(self):
-        return torch.optim.Adam(self.model.parameters(), lr=self.cfg.learning_rate, betas=(self.cfg.beta1, self.cfg.beta2))
+        def adam_opt(model):
+            return torch.optim.Adam(model.parameters(), lr=self.cfg.learning_rate, betas=(self.cfg.beta1, self.cfg.beta2))
+
+        if isinstance(self.model, dict):
+            res = {}
+            for name, module in self.model.items():
+                res[name] = adam_opt(module)
+        else:
+            res = adam_opt(self.model)
+
+        return res
 
     def build_dataloader(self, ctx_name: str):
         cfg = self.cfg
@@ -188,12 +207,26 @@ class BaseTrainer:
 
         return torch.utils.data.DataLoader(self.datasets[ctx_name], batch_size=cfg.batch_size, num_workers=cfg.num_workers, pin_memory=True, worker_init_fn=rnd_init)
 
+    def update_model(self, ctx, loss):
+        ctx.optimizer.zero_grad()
+        with timer.measure('backward'):
+            loss.backward()
+
+        self.execute_callbacks(self.AFTER_BACKWARD_CALLBACK, ctx)
+
+        ctx.optimizer.step()
+
     def train(self, num_steps=None):
         steps = 0
         early_finish = False
 
         while True:
-            self.model.train()
+            if isinstance(self.model, dict):
+                for m in self.model.values():
+                    m.train()
+            else:
+                self.model.train()
+
             ctx = self.contexts['training']
             if ctx.log_comp:
                 ctx.log_comp.clear()
@@ -202,7 +235,9 @@ class BaseTrainer:
                 ctx.local_step = lstep
                 ctx.log_comp.step = self.global_step
 
-                batch = self.move_to_device(batch, ctx.model.device)
+                device = next(iter(ctx.model.values())).device if isinstance(ctx.model, dict) else ctx.model.device
+
+                batch = self.move_to_device(batch, device)
                 with timer.measure("compute_loss"):
                     loss = ctx.compute_loss(batch)
 
