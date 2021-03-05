@@ -70,6 +70,10 @@ class LogAccumulator:
         if self.writer:
             self.writer.add_text(label, text, global_step=self.step)
 
+    def log_image(self, label, image):
+        if self.writer:
+            self.writer.add_image(label, image, global_step=self.step)
+
     def print_aggregates(self):
         """ Print aggregated value to stdout """
         for n, vs in self.epoch_logs.items():

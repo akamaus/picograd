@@ -241,13 +241,7 @@ class BaseTrainer:
                 with timer.measure("compute_loss"):
                     loss = ctx.compute_loss(batch)
 
-                ctx.optimizer.zero_grad()
-                with timer.measure('backward'):
-                    loss.backward()
-
-                self.execute_callbacks(self.AFTER_BACKWARD_CALLBACK, ctx)
-
-                ctx.optimizer.step()
+                self.update_model(ctx, loss)
 
                 self.execute_callbacks(self.AFTER_STEP_CALLBACK, ctx)
 
@@ -261,7 +255,7 @@ class BaseTrainer:
                     early_finish = True
                     break
 
-                if lstep == self.cfg.epoch_size - 1:
+                if self.cfg.epoch_size is not None and lstep == self.cfg.epoch_size - 1:
                     break
 
             self.execute_callbacks(self.AFTER_EPOCH_CALLBACK, ctx)

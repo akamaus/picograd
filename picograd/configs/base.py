@@ -1,5 +1,7 @@
 class BaseConfig:
     """ Nothing, just knows how to assign keyword parameter values to attributes """
+    allow_nulls = False
+
     def override_attrs(self, **kwargs):
         for k, v in kwargs.items():
             if hasattr(self, k):
@@ -20,7 +22,8 @@ class BaseConfig:
                 raise ValueError(f'Unknown parameter "{k}"={v}')
 
         for k, _ in self.iter_attrs():
-            if getattr(self, k) is None:
+            if getattr(self, k) is None and self.allow_nulls is False or \
+               (isinstance(self.allow_nulls, (list,tuple)) and k not in self.allow_nulls):
                 raise ValueError(f'Unspecified parameter', k)
 
     def __repr__(self):
