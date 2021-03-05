@@ -187,15 +187,16 @@ class BaseTrainer:
         return contexts
 
     def build_optimizer(self):
-        def adam_opt(model):
-            return torch.optim.Adam(model.parameters(), lr=self.cfg.learning_rate, betas=(self.cfg.beta1, self.cfg.beta2))
+        def adam_opt(model, lr):
+            return torch.optim.Adam(model.parameters(), lr=lr, betas=(self.cfg.beta1, self.cfg.beta2))
 
         if isinstance(self.model, dict):
             res = {}
-            for name, module in self.model.items():
-                res[name] = adam_opt(module)
+            lrates = [self.cfg.learning_rate] * len(self.model) if isinstance(self.cfg.learning_rate, int) else self.cfg.learning_rate
+            for (name, module), lr in zip(self.model.items(), lrates):
+                res[name] = adam_opt(module, lr)
         else:
-            res = adam_opt(self.model)
+            res = adam_opt(self.model, self.cfg.learning_rate)
 
         return res
 

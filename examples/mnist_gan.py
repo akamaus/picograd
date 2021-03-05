@@ -149,9 +149,12 @@ class GanTrainer(BaseTrainer):
 
     def validation(self):
         gen = self.model['gen']
-        noise = torch.randn(25, self.cfg.nz, 1, 1, device=gen.device)
+
+        if not hasattr(self, 'noise'):
+            self.noise = torch.randn(25, self.cfg.nz, 1, 1, device=gen.device)
+
         with torch.no_grad():
-            fake = gen(noise)
+            fake = gen(self.noise)
 
         image_plate = torchvision.utils.make_grid(fake, nrow=5)
         self.contexts['training'].log_comp.log_image('fake_sample', image_plate)
@@ -160,7 +163,7 @@ class GanTrainer(BaseTrainer):
 class MnistGanConfig(TrainConfig):
     def __init__(self):
         super().__init__()
-        self.learning_rate = 2e-4
+        self.learning_rate = [2e-4, 1e-5]
         self.nz = 100
         self.ngf = 64
         self.ndf = 64
