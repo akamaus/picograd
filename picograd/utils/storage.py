@@ -1,11 +1,14 @@
 import logging
 import os
+import os.path as osp
+
 import random
 from .system import link
-from typing import Optional
+from typing import Optional, Union, Dict
 
 import numpy
 import torch
+import torch.nn as nn
 
 logger = logging.getLogger('utils')
 
@@ -34,13 +37,72 @@ class Storage:
         return d
 
     def checkpoint_path(self, cpt_name: str) -> str:
-        return os.path.join(self.experiment_dir, "checkpoints", f'{cpt_name}.ckp')
+        if osp.sep not in cpt_name:
+            path = os.path.join(self.experiment_dir, "checkpoints", f'{cpt_name}.ckp')
+        else:
+            path = cpt_name + '.ckp'
+        return path
 
-    def save_state(self, model: torch.nn.Module, train_state:dict, cpt_name:str):
+    def model_name(self, cpt_name: str, model_name: str):
+        return cpt_name + '.' + model_name
+
+    def save_model(self, model: nn.Module, save_path: str):
+        model_state = model.state_dict()
+        for pn, v in model_state.items():
+            if torch.isnan(v).sum() > 0:
+                raise SaveStateError('Warning, NaNs in loaded model state detected in parameter', pn)
+        state = {'model_state': model_state,
+                 'meta_parameters': model.meta_parameters}
+
+        torch.save(state, save_path)
+
+    def load_model(self, model_path: str, model:Optional[nn.Module]=None):
+        print('MP', model_path)
+        state = torch.load(model_path)
+        if 'meta_parameters' in state:  # new-style checkpoint
+            meta = state['meta_parameters']
+            name = meta['name']
+            args = meta['args']
+            if isinstance(model, type):
+                model = model(**args)
+            elif model is None:
+                import models
+                logger.info('Instantinating model "%s" from model directory with args %s' % (name, str(args)))
+                model = models.model_directory[name](**args)
+
+        logger.info(f'loading weights from {model_path}')
+
+        if model is None:
+            raise LoadStateError('either use new-style checkpoint or pass model object')
+
+        if 'model_state' in state:
+            model_state = state['model_state']
+        else:
+            model_state = state
+
+        logger.info(f'model.meta_parameters = {model.meta_parameters}')
+
+        for v in model_state.values():
+            if torch.isnan(v).sum() > 0:
+                print('Warning, NaNs in loaded model state detected')
+
+        model.load_state_dict(model_state)
+        return model
+
+    def save_state(self, models: Union[nn.Module, Dict[str, torch.nn.Module]], train_state:dict, cpt_name:str):
         """ Save experiment checkpoint """
         assert isinstance(cpt_name, str), f"checkpoint name should be str, but is {cpt_name}"
         save_path = self.checkpoint_path(cpt_name)
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+        if not isinstance(models, dict):
+            models = {'model': models}
+
+        model_fnames = {}
+        for mname, model in models.items():
+            msave_name = self.model_name(cpt_name, mname)
+            model_fnames[mname] = msave_name
+            self.save_model(model, self.checkpoint_path(msave_name))
 
         rng_state = {}
         rng_state['random'] = random.getstate()
@@ -49,15 +111,11 @@ class Storage:
         if torch.cuda.is_available():
             rng_state['torch.cuda'] = torch.cuda.get_rng_state()
 
-        model_state = model.state_dict()
-        for pn, v in model_state.items():
-            if torch.isnan(v).sum() > 0:
-                raise SaveStateError('Warning, NaNs in loaded model state detected in parameter', pn)
-
-        state = {'model_state': model_state,
+        state = {
+                 'model_fnames': model_fnames,
                  'train_state': train_state,
-                 'meta_parameters': model.meta_parameters,
-                 'rng_state': rng_state
+                 'rng_state': rng_state,
+                 'format': 'V2.0'
                 }
 
         logger.info(f'saving to {save_path}')
@@ -78,37 +136,25 @@ class Storage:
 
         if checkpoint_path is None:  # neither is specified, should load last one
             checkpoint_path = self.checkpoint_path(self.LAST_CPT)
+            checkpoint_name = self.LAST_CPT
+        else:
+            checkpoint_name = os.path.splitext(os.path.basename(checkpoint_path))[0]
 
         state = torch.load(checkpoint_path)
 
-        if 'meta_parameters' in state:  # new-style checkpoint
-            meta = state['meta_parameters']
-            name = meta['name']
-            args = meta['args']
-            if isinstance(model, type):
-                model = model(**args)
-            elif model is None:
-                import models
-                logger.info('Instantinating model "%s" from model directory with args %s' % (name, str(args)))
-                model = models.model_directory[name](**args)
+        fmt = state.get('format', 'V1.0')
 
-        logger.info(f'loading weights from {checkpoint_path}')
-
-        if model is None:
-            raise LoadStateError('either use new-style checkpoint or pass model object')
-
-        if 'model_state' in state:
-            model_state = state['model_state']
+        if fmt == 'V1.0':
+            model = self.load_model(checkpoint_path, model)  # just read the model data from the same checkpoint
+        elif fmt == 'V2.0':
+            models = {}
+            for m_name, m_fname in state['model_fnames'].items():
+                model_path = self.checkpoint_path(osp.join(osp.dirname(checkpoint_path), m_fname))
+                m = model.get(m_name) if isinstance(model, dict) else model
+                models[m_name] = self.load_model(model_path, model=m)
         else:
-            model_state = state
+            raise LoadStateError('Unknown format', fmt, checkpoint_path)
 
-        logger.info(f'model.meta_parameters = {model.meta_parameters}')
-
-        for v in model_state.values():
-            if torch.isnan(v).sum() > 0:
-                print('Warning, NaNs in loaded model state detected')
-
-        model.load_state_dict(model_state)
         rng_state = state.get('rng_state')
         if rng_state:
             st = rng_state.get('random')
@@ -124,4 +170,7 @@ class Storage:
             if st is not None and torch.cuda.is_available():
                 torch.cuda.set_rng_state(st)
 
-        return model, state.get('train_state')
+        if len(models) == 1 and 'model' in models:
+            models = models['model']
+
+        return models, state.get('train_state')
