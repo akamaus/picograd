@@ -206,7 +206,12 @@ class BaseTrainer:
         def rnd_init(w_id):
             fix_seeds(self.global_step * 100 + w_id)
 
-        return torch.utils.data.DataLoader(self.datasets[ctx_name], batch_size=cfg.batch_size, num_workers=cfg.num_workers, pin_memory=True, worker_init_fn=rnd_init)
+        return torch.utils.data.DataLoader(self.datasets[ctx_name],
+                                           batch_size=cfg.batch_size,
+                                           num_workers=cfg.num_workers,
+                                           pin_memory=True,
+                                           shuffle=(ctx_name == 'training'),
+                                           worker_init_fn=rnd_init)
 
     def update_model(self, ctx, loss):
         ctx.optimizer.zero_grad()
