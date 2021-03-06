@@ -274,7 +274,7 @@ class BaseTrainer:
 
             self.epoch += 1
 
-            if self.storage:
+            if self.storage and (self.save_every % self.epoch == 0):
                 self.save_state()
 
             if self.epoch >= self.cfg.num_epochs:

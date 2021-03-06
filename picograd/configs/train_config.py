@@ -29,6 +29,7 @@ class TrainConfig(BaseConfig):
         self.val_period = 0  # in epochs
         self.val_batches = 10
         self.fresh_trainer = False
+        self.save_every = 1  # how often to save checkpoint, in epochs
 
         self.baseline_tau = 0.01
         self.device = 'cpu'
