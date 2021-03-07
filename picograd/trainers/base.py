@@ -48,7 +48,7 @@ class BaseContext:
     def state_dict(self):
         state = {}
 
-        opt = None
+        opt_st = None
         if self.optimizer is not None:
             if isinstance(self.optimizer, dict):
                 opt_st = {}
@@ -289,8 +289,9 @@ class BaseTrainer:
             for ctx_name in self.validation_context_names:
                 ctx = self.contexts[ctx_name]
                 val_period = ctx.run_every or self.cfg.val_period
-                if val_period is not None or val_period > 0 or self.epoch % val_period != 0:
+                if val_period is None or (val_period > 0 and self.epoch % val_period != 0):
                     continue
+                print(ctx_name, val_period)
 
                 self.model.eval()
                 ctx.log_comp.clear()
@@ -308,7 +309,7 @@ class BaseTrainer:
                 ctx.log_comp.log_aggregates()
 
     def process_val_batch(self, ctx: BaseContext, batch: dict):
-        raise NotImplementedError()
+        ctx.compute_loss(batch)
 
     @property
     def cuda_fields(self) -> Optional[Set[str]]:
@@ -336,5 +337,3 @@ class BaseTrainer:
 
         return res
 
-    def process_val_batch(self, ctx: BaseContext, batch: dict):
-        ctx.compute_loss(batch)
