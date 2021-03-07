@@ -1,11 +1,14 @@
 from typing import Tuple
 
+import random
 import torch
 import numpy as np
 
 
 def fix_seeds(k):
     """ Set seeds for all commonly used sources of randomness """
+
+    random.seed(k)
     torch.manual_seed(k)
     torch.cuda.manual_seed(k)
     np.random.seed(k)
