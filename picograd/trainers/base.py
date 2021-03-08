@@ -274,7 +274,7 @@ class BaseTrainer:
 
             self.epoch += 1
 
-            if self.storage and (self.cfg.save_every % self.epoch == 0):
+            if self.storage and (self.epoch % self.cfg.save_every == 0):
                 self.save_state()
 
             if self.epoch >= self.cfg.num_epochs:
@@ -291,7 +291,6 @@ class BaseTrainer:
                 val_period = ctx.run_every or self.cfg.val_period
                 if val_period is None or (val_period > 0 and self.epoch % val_period != 0):
                     continue
-                print(ctx_name, val_period)
 
                 self.model.eval()
                 ctx.log_comp.clear()
