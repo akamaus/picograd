@@ -90,6 +90,7 @@ class BaseTrainer:
     AFTER_BACKWARD_CALLBACK = 'after_backward'
     AFTER_STEP_CALLBACK = 'after_step'
     AFTER_EPOCH_CALLBACK = 'after_epoch'
+    AFTER_VAL_EPOCH_CALLBACK = 'after_val_epoch'
 
     def __init__(self, model: Module,
                  datasets: Union[Dataset, Dict[str, Dataset]],
@@ -303,9 +304,12 @@ class BaseTrainer:
                     self.process_val_batch(ctx, batch)
 
                 ctx.log_comp.step = self.global_step
+                self.execute_callbacks(self.AFTER_VAL_EPOCH_CALLBACK, ctx)
+
                 print(f'** Validation results for {ctx_name}:')
                 ctx.log_comp.print_aggregates()
                 ctx.log_comp.log_aggregates()
+
 
     def process_val_batch(self, ctx: BaseContext, batch: dict):
         ctx.compute_loss(batch)
