@@ -223,6 +223,20 @@ class BaseTrainer:
 
         ctx.optimizer.step()
 
+    def execute_training_step(self, ctx, lstep, batch):
+        ctx.local_step = lstep
+        ctx.log_comp.step = self.global_step
+
+        device = next(iter(ctx.model.values())).device if isinstance(ctx.model, dict) else ctx.model.device
+
+        batch = self.move_to_device(batch, device)
+        with timer.measure("compute_loss"):
+            loss = ctx.compute_loss(batch)
+
+        self.update_model(ctx, loss)
+
+        self.execute_callbacks(self.AFTER_STEP_CALLBACK, ctx)
+
     def train(self, num_steps=None):
         steps = 0
         early_finish = False
@@ -239,19 +253,7 @@ class BaseTrainer:
                 ctx.log_comp.clear()
 
             for lstep, batch in enumerate(tqdm(ctx.dataloader, total=self.cfg.epoch_size, desc=f'Epoch {self.epoch}')):
-                ctx.local_step = lstep
-                ctx.log_comp.step = self.global_step
-
-                device = next(iter(ctx.model.values())).device if isinstance(ctx.model, dict) else ctx.model.device
-
-                batch = self.move_to_device(batch, device)
-                with timer.measure("compute_loss"):
-                    loss = ctx.compute_loss(batch)
-
-                self.update_model(ctx, loss)
-
-                self.execute_callbacks(self.AFTER_STEP_CALLBACK, ctx)
-
+                self.execute_training_step(ctx, lstep, batch)
                 self.global_step += 1
                 steps += 1
                 if ctx.log_comp:
