@@ -190,7 +190,7 @@ class BaseTrainer:
 
     def build_optimizer(self):
         def adam_opt(model, lr):
-            return torch.optim.Adam(model.parameters(), lr=lr, betas=(self.cfg.beta1, self.cfg.beta2))
+            return torch.optim.Adam(model.parameters(), lr=lr, betas=(self.cfg.beta1, self.cfg.beta2), weight_decay=self.cfg.weight_decay)
 
         if isinstance(self.model, dict):
             res = {}
