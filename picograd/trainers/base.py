@@ -89,6 +89,7 @@ class BaseTrainer:
 
     AFTER_BACKWARD_CALLBACK = 'after_backward'
     AFTER_STEP_CALLBACK = 'after_step'
+    BEFORE_EPOCH_CALLBACK = 'before_epoch'
     AFTER_EPOCH_CALLBACK = 'after_epoch'
     AFTER_VAL_EPOCH_CALLBACK = 'after_val_epoch'
 
@@ -251,6 +252,8 @@ class BaseTrainer:
             ctx = self.contexts['training']
             if ctx.log_comp:
                 ctx.log_comp.clear()
+
+            self.execute_callbacks(self.BEFORE_EPOCH_CALLBACK, ctx)
 
             for lstep, batch in enumerate(tqdm(ctx.dataloader, total=self.cfg.epoch_size, desc=f'Epoch {self.epoch}')):
                 self.execute_training_step(ctx, lstep, batch)
