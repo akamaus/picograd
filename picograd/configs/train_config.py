@@ -52,12 +52,12 @@ class TrainConfig(BaseConfig):
 
         if checkpoint is not None:
             if checkpoint.find(osp.sep) > -1:
-                model, trainer_state = storage.load_state(checkpoint_path=checkpoint, model=model)
+                model, trainer_state = storage.load_state(checkpoint_path=checkpoint, model=model, device=self.device)
             else:
                 if checkpoint == 'last':
                     checkpoint = None
                 try:
-                    model, trainer_state = storage.load_state(checkpoint_name=checkpoint, model=model)
+                    model, trainer_state = storage.load_state(checkpoint_name=checkpoint, model=model, device=self.device)
                 except FileNotFoundError:
                     if checkpoint is None:  # did our best to resume training, but no checkpoints were found
                         print('Warning, no checkpoint found, starting afresh')

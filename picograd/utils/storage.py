@@ -59,8 +59,8 @@ class Storage:
 
         torch.save(state, save_path)
 
-    def load_model(self, model_path: str, model:Optional[nn.Module]=None):
-        state = torch.load(model_path)
+    def load_model(self, model_path: str, model:Optional[nn.Module]=None, device=None):
+        state = torch.load(model_path, map_location=device)
         if 'meta_parameters' in state:  # new-style checkpoint
             meta = state['meta_parameters']
             name = meta.get('name')
@@ -130,7 +130,8 @@ class Storage:
             os.unlink(last_cpt)
         link(osp.abspath(save_path), last_cpt)
 
-    def load_state(self, checkpoint_path:Optional[str]=None, checkpoint_name:Optional[str]=None, model: Optional[nn.Module]=None):
+    def load_state(self, checkpoint_path:Optional[str]=None, checkpoint_name:Optional[str]=None,
+                   model: Optional[nn.Module]=None, device=None):
         """ Loads a state from the checkpoint,  tries to instantinate appropriate model if possible """
         assert not (checkpoint_path is not None and checkpoint_name is not None), \
             "checkpoint_path and checkpoint_name must not be specified together"
@@ -144,18 +145,18 @@ class Storage:
         else:
             checkpoint_name = osp.splitext(osp.basename(checkpoint_path))[0]
 
-        state = torch.load(checkpoint_path)
+        state = torch.load(checkpoint_path, map_location=device)
 
         fmt = state.get('format', 'V1.0')
 
         if fmt == 'V1.0':
-            model = self.load_model(checkpoint_path, model)  # just read the model data from the same checkpoint
+            model = self.load_model(checkpoint_path, model, device=device)  # just read the model data from the same checkpoint
         elif fmt == 'V2.0':
             models = {}
             for m_name, m_fname in state['model_fnames'].items():
                 model_path = self.checkpoint_path(osp.join(osp.dirname(checkpoint_path), m_fname))
                 m = model.get(m_name) if isinstance(model, dict) else model
-                models[m_name] = self.load_model(model_path, model=m)
+                models[m_name] = self.load_model(model_path, model=m, device=device)
         else:
             raise LoadStateError('Unknown format', fmt, checkpoint_path)
 
