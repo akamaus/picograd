@@ -111,9 +111,9 @@ class Storage:
         rng_state = {}
         rng_state['random'] = random.getstate()
         rng_state['numpy'] = numpy.random.get_state()
-        rng_state['torch'] = torch.get_rng_state()
+        rng_state['torch'] = torch.get_rng_state().cpu()
         if torch.cuda.is_available():
-            rng_state['torch.cuda'] = torch.cuda.get_rng_state()
+            rng_state['torch.cuda'] = torch.cuda.get_rng_state().cpu()
 
         state = {
                  'model_fnames': model_fnames,
@@ -170,10 +170,10 @@ class Storage:
                 numpy.random.set_state(st)
             st = rng_state.get('torch')
             if st is not None:
-                torch.set_rng_state(st)
+                torch.set_rng_state(st.cpu())
             st = rng_state.get('torch.cuda')
             if st is not None and torch.cuda.is_available():
-                torch.cuda.set_rng_state(st)
+                torch.cuda.set_rng_state(st.cpu())
 
         if len(models) == 1 and 'model' in models:
             models = models['model']
