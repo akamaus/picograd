@@ -4,7 +4,7 @@ import os.path as osp
 
 import random
 from .system import link
-from typing import Optional, Union, Dict
+from typing import Optional, Union, Dict, Any
 
 import numpy
 import torch
@@ -131,7 +131,7 @@ class Storage:
         link(osp.abspath(save_path), last_cpt)
 
     def load_state(self, checkpoint_path:Optional[str]=None, checkpoint_name:Optional[str]=None,
-                   model: Optional[nn.Module]=None, device=None):
+                   model: Optional[nn.Module]=None, device=None) -> tuple[dict, Any]:
         """ Loads a state from the checkpoint,  tries to instantinate appropriate model if possible """
         assert not (checkpoint_path is not None and checkpoint_name is not None), \
             "checkpoint_path and checkpoint_name must not be specified together"
@@ -151,6 +151,7 @@ class Storage:
 
         if fmt == 'V1.0':
             model = self.load_model(checkpoint_path, model, device=device)  # just read the model data from the same checkpoint
+            models = {'model': model}
         elif fmt == 'V2.0':
             models = {}
             for m_name, m_fname in state['model_fnames'].items():

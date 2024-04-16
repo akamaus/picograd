@@ -97,5 +97,5 @@ class TrainConfig(BaseConfig):
         """ Build model class from scratch """
         raise NotImplemented()
 
-    def build_trainer(self, model: torch.nn.Module, storage: Storage) -> "BaseTrainer":
+    def build_trainer(self, model: Union[torch.nn.Module | dict], storage: Storage) -> "BaseTrainer":
         raise NotImplemented()
