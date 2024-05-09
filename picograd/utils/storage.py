@@ -131,7 +131,7 @@ class Storage:
         link(osp.abspath(save_path), last_cpt)
 
     def load_state(self, checkpoint_path:Optional[str]=None, checkpoint_name:Optional[str]=None,
-                   model: Optional[nn.Module]=None, device=None) -> tuple[dict, Any]:
+                   model: Optional[Union[nn.Module, dict[str, nn.Module]]]=None, device=None) -> tuple[dict, Any]:
         """ Loads a state from the checkpoint,  tries to instantinate appropriate model if possible """
         assert not (checkpoint_path is not None and checkpoint_name is not None), \
             "checkpoint_path and checkpoint_name must not be specified together"
