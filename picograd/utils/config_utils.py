@@ -4,6 +4,8 @@ from picograd.configs.train_config import TrainConfig, BaseConfig
 
 
 def load_config(config_path: str, rest_args: list) -> TrainConfig:
+    if not Path(config_path).exists():
+        raise ValueError("Config not found", config_path)
     spec = importlib.util.spec_from_file_location(Path(config_path).stem, config_path)
     config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(config)
