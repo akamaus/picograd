@@ -141,10 +141,8 @@ class Storage:
 
         if checkpoint_path is None:  # neither is specified, should load last one
             checkpoint_path = self.checkpoint_path(self.LAST_CPT)
-            checkpoint_name = self.LAST_CPT
-        else:
-            checkpoint_name = osp.splitext(osp.basename(checkpoint_path))[0]
 
+        print("Loading state from", checkpoint_path)
         state = torch.load(checkpoint_path, map_location=device)
 
         fmt = state.get('format', 'V1.0')
