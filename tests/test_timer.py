@@ -2,12 +2,12 @@
 import torch
 
 from picograd.utils.timer import Timer
-import picograd.utils.timer as t
+import picograd.utils.timer as T
 
 timer = Timer()
 
 
-@t.wrap('multiply')
+@T.wrap('multiply')
 def multiply(m, k):
     for _ in range(k):
         x = m @ m
@@ -29,4 +29,4 @@ def test_timer():
     assert r2 == 20
 
     timer.print_report()
-    t.print_report()
+    T.print_report()

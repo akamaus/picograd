@@ -26,7 +26,7 @@ class Timer:
         table_rows = []
         for name, vals in self._timers.items():
             vals = torch.tensor(vals)
-            line = [name, vals.mean().item(), vals.sum().item(), vals.min().item(), vals.max().item(), vals.std().item(), len(vals)]
+            line = [name, vals.mean().item(), vals.sum().item(), vals.min().item(), vals.max().item(), vals.std().item() if vals.nelement() > 1 else 0, len(vals)]
             table_rows.append(line)
 
         print(tabulate(table_rows, headers=table_head, floatfmt=".6f"))
