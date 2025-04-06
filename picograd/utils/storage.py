@@ -60,7 +60,7 @@ class Storage:
         torch.save(state, save_path)
 
     def load_model(self, model_path: str, model:Optional[nn.Module]=None, device=None):
-        state = torch.load(model_path, map_location=device)
+        state = torch.load(model_path, map_location=device, weights_only=True)
         if 'meta_parameters' in state:  # new-style checkpoint
             meta = state['meta_parameters']
             name = meta.get('name')
@@ -145,7 +145,7 @@ class Storage:
         else:
             checkpoint_name = osp.splitext(osp.basename(checkpoint_path))[0]
 
-        state = torch.load(checkpoint_path, map_location=device)
+        state = torch.load(checkpoint_path, weights_only=False)
 
         fmt = state.get('format', 'V1.0')
 
