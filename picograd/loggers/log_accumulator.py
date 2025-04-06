@@ -2,7 +2,7 @@ from typing import Optional
 from collections import defaultdict
 
 import torch
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 
 class LogAccumulator:

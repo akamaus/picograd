@@ -11,7 +11,7 @@ import warnings
 from ..utils.helpers import fix_seeds
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 from ..configs.train_config import TrainConfig
 from ..loggers.log_accumulator import LogAccumulator
