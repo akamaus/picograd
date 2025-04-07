@@ -12,7 +12,7 @@ from picograd.utils.helpers import fix_seeds
 from picograd.utils.config_utils import load_config
 
 
-if __name__ == '__main__':
+def main():
     parser = ArgumentParser()
     parser.add_argument('config', help='config file to load')
     parser.add_argument('--restore', help='checkpoint name or path')
@@ -39,3 +39,7 @@ if __name__ == '__main__':
             trainer.train(args.train_steps)
     finally:
         timer.print_report()
+
+
+if __name__ == '__main__':
+    main()
