@@ -45,6 +45,9 @@ class BaseContext:
     def compute_loss(self, input: dict):
         raise NotImplementedError
 
+    def process_val_batch(self, batch: dict):
+        self.compute_loss(batch)
+
     def state_dict(self):
         state = {}
 
@@ -307,7 +310,7 @@ class BaseTrainer:
                     if idx == ctx.num_batches:
                         break
                     batch = self.move_to_device(batch, ctx.model.device)
-                    self.process_val_batch(ctx, batch)
+                    ctx.process_val_batch(batch)
 
                 ctx.log_comp.step = self.global_step
                 self.execute_callbacks(self.AFTER_VAL_EPOCH_CALLBACK, ctx)
@@ -316,9 +319,6 @@ class BaseTrainer:
                 ctx.log_comp.print_aggregates()
                 ctx.log_comp.log_aggregates()
 
-
-    def process_val_batch(self, ctx: BaseContext, batch: dict):
-        ctx.compute_loss(batch)
 
     @property
     def cuda_fields(self) -> Optional[Set[str]]:
