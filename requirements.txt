@@ -1,0 +1,7 @@
+tqdm >= 4
+numpy >= 1.17
+pytest >= 6
+torch >= 1
+scipy >= 1
+tabulate >= 0.8
+ 

@@ -2,7 +2,7 @@ import os.path as osp
 
 import pytest
 
-from run import load_config
+from picograd.picorun import load_config
 
 
 def test_runner():
