@@ -27,8 +27,9 @@ class TrainConfig(BaseConfig):
         self.beta1 = 0.9
         self.beta2 = 0.999
         self.log_period = 1
-        self.val_period = 0  # in epochs
-        self.val_batches = 10
+        self.val_period = 0  # in epoch
+        self.val_batches = 0
+        self.validate_on_start = False
         self.fresh_trainer = False
         self.save_every = 1  # how often to save checkpoint, in epochs
 

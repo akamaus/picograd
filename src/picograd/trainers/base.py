@@ -1,3 +1,4 @@
+import math
 import os.path as osp
 from typing import Optional, Union, Dict, Set, Callable
 
@@ -34,6 +35,7 @@ class BaseContext:
         self.model = model
         self.dataloader = dataloader
         self.log_comp = log_comp
+        self.metrics = {}
         self.optimizer = optimizer
         self.writer = writer
         self.run_every = None  # if none uses default values from trainer
@@ -42,11 +44,24 @@ class BaseContext:
         self.local_step = 0
         """ Intra-epoch step counter """
 
-    def compute_loss(self, input: dict):
-        raise NotImplementedError
+    def on_training_start(self, epoch, global_step):
+        self._reset_metrics()
 
-    def process_val_batch(self, batch: dict):
-        self.compute_loss(batch)
+    def on_training_finish(self, epoch, global_step):
+        self._log_metrics(global_step)
+
+    def on_validation_start(self):
+        self._reset_metrics()
+
+    def on_validation_finish(self, global_step):
+        self._log_metrics(global_step)
+
+
+    def compute_loss(self, input: dict):
+        raise NotImplementedError()
+
+    def process_validation_batch(self, batch: dict):
+        raise NotImplementedError()
 
     def state_dict(self):
         state = {}
@@ -79,6 +94,17 @@ class BaseContext:
 
         if self.log_comp is not None:
             self.log_comp.load_state_dict(state['log_comp'])
+
+    def _reset_metrics(self):
+        for m in self.metrics.values():
+            m.reset()
+
+    def _log_metrics(self, global_step):
+        for name, metric in self.metrics.items():
+            val = metric.compute()
+            print(f"{name} = {val}")
+            if self.writer is not None:
+                self.writer.add_scalar(name, val, global_step)
 
 
 class BaseTrainer:
@@ -116,8 +142,10 @@ class BaseTrainer:
 
         self.callbacks = {}
 
-        self.global_step = 0
-        self.epoch = 0
+        self.global_step = 0  # Persisting step counter
+        self.epoch = 0  # Persisting epoch counter
+
+        self.local_step = 0  # Step counter which starts from zero on each staring session start
 
     def save_state(self):
         self.storage.save_state(self.model, self.state_dict(), f'epoch_{self.epoch}')
@@ -148,7 +176,6 @@ class BaseTrainer:
                         raise LoadStateError('no state for context', k)
                 else:
                     ctx.load_state_dict(ctxs_st[k])
-
 
     def add_callback(self, callback_name:str, f:Callable):
         lst = self.callbacks.get(callback_name, [])
@@ -187,6 +214,7 @@ class BaseTrainer:
                                               trainer=self,
                                               model=self.model,
                                               dataloader=self.build_dataloader(ctx_name),
+                                              writer=val_writer,
                                               log_comp=LogAccumulator(val_writer, period=0))
 
         return contexts
@@ -205,7 +233,7 @@ class BaseTrainer:
 
         return res
 
-    def build_dataloader(self, ctx_name: str):
+    def build_dataloader(self, ctx_name: str, collate_fn=None):
         cfg = self.cfg
 
         def rnd_init(w_id):
@@ -217,6 +245,7 @@ class BaseTrainer:
                                            num_workers=cfg.num_workers,
                                            pin_memory=True,
                                            shuffle= (ctx_name == 'training') and not isinstance(ds, torch.utils.data.IterableDataset),
+                                           collate_fn=collate_fn,
                                            worker_init_fn=rnd_init)
 
     def update_model(self, ctx, loss):
@@ -239,60 +268,70 @@ class BaseTrainer:
             loss = ctx.compute_loss(batch)
 
         self.update_model(ctx, loss)
-
         self.execute_callbacks(self.AFTER_STEP_CALLBACK, ctx)
 
-    def train(self, num_steps=None):
-        steps = 0
-        early_finish = False
+    def run_training_loop(self, num_steps=None):
+        finish = False
 
-        while True:
-            if isinstance(self.model, dict):
-                for m in self.model.values():
-                    m.train()
-            else:
-                self.model.train()
+        while not finish:
+            if self.epoch == 0 and self.cfg.validate_on_start:
+                self.validation()
 
-            ctx = self.contexts['training']
-            if ctx.log_comp:
-                ctx.log_comp.clear()
+            finish = self.train_single_epoch(num_steps)
 
-            self.execute_callbacks(self.BEFORE_EPOCH_CALLBACK, ctx)
-
-            for lstep, batch in enumerate(tqdm(ctx.dataloader, total=self.cfg.epoch_size, desc=f'Epoch {self.epoch}')):
-                self.execute_training_step(ctx, lstep, batch)
-                self.global_step += 1
-                steps += 1
-                if ctx.log_comp:
-                    ctx.log_comp.step += 1
-
-                if num_steps is not None and steps == num_steps:
-                    print('Target num_steps reached')
-                    early_finish = True
-                    break
-
-                if self.cfg.epoch_size is not None and lstep == self.cfg.epoch_size - 1:
-                    break
-
-            self.execute_callbacks(self.AFTER_EPOCH_CALLBACK, ctx)
-
-            print('Epoch aggregates:')
-            if ctx.log_comp:
-                ctx.log_comp.print_aggregates()
+            print('SS', self.storage)
+            if self.storage and (self.epoch % self.cfg.save_every == 0):
+                print('save')
+                self.save_state()
 
             self.validation()
 
             self.epoch += 1
 
-            if self.storage and (self.epoch % self.cfg.save_every == 0):
-                self.save_state()
+            if self.epoch >= self.cfg.num_epochs - 1:
+                print('Target epoch number reached. Finishing')
+                finish = True
 
-            if self.epoch >= self.cfg.num_epochs:
-                print('Target epoch number reached')
+    def train_single_epoch(self, local_step_limit=None) -> bool:
+        finish = False
+
+        if isinstance(self.model, dict):
+            for m in self.model.values():
+                m.train()
+        else:
+            self.model.train()
+
+        ctx = self.contexts['training']
+        if ctx.log_comp:
+            ctx.log_comp.clear()
+
+        ctx.on_training_start(self.epoch, self.global_step)
+        self.execute_callbacks(self.BEFORE_EPOCH_CALLBACK, ctx)
+
+        for lstep, batch in enumerate(tqdm(ctx.dataloader, total=self.cfg.epoch_size, desc=f'Epoch {self.epoch}')):
+            self.execute_training_step(ctx, lstep, batch)
+            self.global_step += 1
+            self.local_step += 1
+            if ctx.log_comp:
+                ctx.log_comp.step += 1
+
+            if self.local_step == local_step_limit:
+                print('Target num_steps reached. Finishing')
+                finish = True
                 break
 
-            if early_finish:
+            if self.cfg.epoch_size is not None and lstep == self.cfg.epoch_size - 1:
+                print('Target epoch size reached')
                 break
+
+        ctx.on_training_finish(self.epoch, self.global_step)
+        self.execute_callbacks(self.AFTER_EPOCH_CALLBACK, ctx)
+
+        print('Epoch aggregates:')
+        if ctx.log_comp:
+            ctx.log_comp.print_aggregates()
+
+        return finish
 
     def validation(self):
         with torch.no_grad():
@@ -302,23 +341,43 @@ class BaseTrainer:
                 if val_period is None or (val_period > 0 and self.epoch % val_period != 0):
                     continue
 
+                if ctx.num_batches:
+                    batch_limit = ctx.num_batches
+                elif self.cfg.val_batches > 0:
+                    batch_limit = self.cfg.val_batches
+                else:
+                    batch_limit = None
+                print(batch_limit)
+
                 self.model.eval()
+                ctx.on_validation_start()
                 ctx.log_comp.clear()
 
-                for idx, batch in enumerate(ctx.dataloader):
+                ds = ctx.dataloader.dataset
+                if hasattr(ds, '__len__'):
+                    num_ds_batches = math.ceil(len(ds) / ctx.dataloader.batch_size)
+                else:
+                    num_ds_batches = None
+
+                if batch_limit:
+                    num_ds_batches = min(num_ds_batches, batch_limit)
+
+                for idx, batch in tqdm(enumerate(ctx.dataloader), total=num_ds_batches, desc=f'Performing {ctx_name}'):
                     ctx.local_step = idx
-                    if idx == ctx.num_batches:
+                    if idx == batch_limit:
+                        print(f'Stopping validation after {idx} batches')
                         break
                     batch = self.move_to_device(batch, ctx.model.device)
-                    ctx.process_val_batch(batch)
+                    ctx.process_validation_batch(batch)
 
                 ctx.log_comp.step = self.global_step
+                ctx.on_validation_finish(self.global_step)
+
                 self.execute_callbacks(self.AFTER_VAL_EPOCH_CALLBACK, ctx)
 
-                print(f'** Validation results for {ctx_name}:')
+                print(f'** Results for {ctx_name} for epoch {self.epoch}:')
                 ctx.log_comp.print_aggregates()
                 ctx.log_comp.log_aggregates()
-
 
     @property
     def cuda_fields(self) -> Optional[Set[str]]:

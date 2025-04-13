@@ -36,7 +36,7 @@ def main():
 
     try:
         with timer.measure('total_train'):
-            trainer.train(args.train_steps)
+            trainer.run_training_loop(args.train_steps)
     finally:
         timer.print_report()
 
