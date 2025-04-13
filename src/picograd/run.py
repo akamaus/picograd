@@ -19,8 +19,13 @@ def main():
     parser.add_argument('--fresh_trainer', action='store_true', help='start from first epoch')
     parser.add_argument('--global_step', type=int, help='set starting global_step for trainer')
     parser.add_argument('--train_steps', type=int, help='train for some number of steps and then exit')
+    parser.add_argument('--seed', type=int, default=42)
 
     args, rest_args = parser.parse_known_args()
+
+    print(f'Fixing seeds to {args.seed}')
+    fix_seeds(args.seed)
+
     cfg = load_config(args.config, rest_args)
 
     trainer = cfg.prepare_trainer(checkpoint=args.restore, fresh_trainer = cfg.fresh_trainer or args.fresh_trainer)
@@ -30,9 +35,6 @@ def main():
 
     print('Model:')
     print(trainer.model)
-
-    print('Fixing seeds to 42')
-    fix_seeds(42)
 
     try:
         with timer.measure('total_train'):
