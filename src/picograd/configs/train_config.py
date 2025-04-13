@@ -67,7 +67,8 @@ class TrainConfig(BaseConfig):
 
         def move_model(m):
             m = m.to(self.device)
-            m.device = self.device
+            if not hasattr(m, 'device'):
+                m.device = self.device
             return m
 
         if isinstance(model, dict):
