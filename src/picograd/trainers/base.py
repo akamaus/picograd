@@ -279,16 +279,15 @@ class BaseTrainer:
 
             finish = self.train_single_epoch(num_steps)
 
-            print('SS', self.storage)
+            self.epoch += 1
             if self.storage and (self.epoch % self.cfg.save_every == 0):
                 print('save')
                 self.save_state()
 
             self.validation()
 
-            self.epoch += 1
 
-            if self.epoch >= self.cfg.num_epochs - 1:
+            if self.epoch >= self.cfg.num_epochs:
                 print('Target epoch number reached. Finishing')
                 finish = True
 
